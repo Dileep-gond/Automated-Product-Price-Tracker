@@ -1,0 +1,39 @@
+# Automated Product Price Tracker with Daily Analytics Dashboard
+
+## Project Overview
+An automated product price tracking system built using n8n to collect Amazon product prices, maintain historical price records, identify daily lowest prices, and visualize price trends through an analytics dashboard.
+
+## Technologies Used
+- n8n – Workflow automation
+- Apify – Amazon product data extraction
+- Google Sheets – Product and price history storage
+- Looker Studio – Data visualization and analytics
+
+## Workflow Architecture
+1. Google Sheets – Stores the product details.
+2. n8n – Executes the automated workflow.
+3. Apify API – Extracts product price information.
+4. Google Sheets – Stores historical price data.
+5. Code Node – Processes price records and calculates daily insights.
+6. Looker Studio – Displays price trends and daily analytics.
+
+## Key Features
+- Automated product price collection.
+- Historical price tracking.
+- Identification of daily lowest prices.
+- Daily analytics and price trend visualization.
+
+## Project Files
+- `workflow.json` – Exported n8n workflow.
+- `screenshots/` – Workflow and dashboard screenshots.
+
+## Setup Instructions
+1. Download the `workflow.json` file.
+2. Open your n8n instance.
+3. Import the workflow JSON file.
+4. Configure your own Apify API token and Google Sheets credentials.
+5. Update the required Google Sheets references.
+6. Execute the workflow.
+
+## Note
+This project requires your own API credentials and Google Sheets configuration. No private credentials are included in this repository.
