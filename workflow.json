@@ -1,0 +1,586 @@
+{
+  "name": "AI_PROJECT_PRICE",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/jaybird~amazon-product-data-scraper/run-sync-get-dataset-items?token=YOUR_APIFY_API_TOKEN",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"startUrls\": [\n    {\n      \"url\": \"{{$json[\"url\"]}}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        544
+      ],
+      "id": "9863030d-85b1-4b1d-b067-45af2cf3d1fe",
+      "name": "HTTP Request",
+      "alwaysOutputData": false,
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "582c3244-a6a9-4746-a53e-cadda086a562",
+              "leftValue": "={{ $json.price }}",
+              "rightValue": "={{ $('Loop Over Items').item.json['target price'] }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1104,
+        544
+      ],
+      "id": "d8eb136a-bf07-4515-befb-d8cb5789662b",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "batchSize": "={{ 1 }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        416,
+        560
+      ],
+      "id": "f7f54cb2-8399-4931-be98-8ce043cc5885",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        560
+      ],
+      "id": "5d346cbf-fbf3-4bd5-98c1-19c0391242d0",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 23,
+              "triggerAtMinute": 55
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        1168,
+        0
+      ],
+      "id": "055f8b4b-f630-45d0-be45-483eaa021b6b",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    time: new Date().toISOString(),\n\n    // From HTTP response\n    product: $json.title,\n    price: $json.price,\n\n    // From Sheet input (still present)\n    target_price: $json[\"target price\"],\n    url: $json.url\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        544
+      ],
+      "id": "536779d9-8fbf-4241-9b64-6ccbaa181a0c",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# Get all input items\nitems = _items\n\n# Store minimum prices\nresult = {}\n\n# STEP 1:\n# Get latest date from FIRST row\n# (because newest records are added at top)\n\nfirst_row = items[0][\"json\"]\n\nlatest_date = str(first_row[\"time\"]).split(\"T\")[0]\n\n# STEP 2:\n# Loop from START\n\nfor item in items:\n\n    row = item[\"json\"]\n\n    # Skip invalid rows safely\n    if (\n        \"time\" not in row or\n        \"product\" not in row or\n        \"price\" not in row\n    ):\n        continue\n\n    # Extract row date\n    row_date = str(row[\"time\"]).split(\"T\")[0]\n\n    # Stop loop once date changes\n    if row_date != latest_date:\n        break\n\n    # Clean product name\n    product = str(row[\"product\"]).strip()\n\n    # Clean and convert price\n    try:\n\n        price = float(\n            str(row[\"price\"])\n            .replace(\",\", \"\")\n            .replace(\"₹\", \"\")\n            .strip()\n        )\n\n    except:\n        continue\n\n    # First occurrence\n    if product not in result:\n\n        result[product] = price\n\n    # Update minimum price\n    elif price < result[product]:\n\n        result[product] = price\n\n# STEP 3:\n# Convert to n8n output format\n\noutput = []\n\nfor product, min_price in result.items():\n\n    output.append({\n        \"json\": {\n            \"date\": latest_date,\n            \"product\": product,\n            \"min_price\": min_price\n        }\n    })\n\nreturn output"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "bacf529a-f0f9-4d71-8edb-946c1468e377",
+      "name": "Code in Python"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        464,
+        832
+      ],
+      "id": "36de367f-7364-46b1-a6d2-8d2944f3a934",
+      "placeholder": true
+    },
+    {
+      "parameters": {
+        "content": "DASH BOARD \n\nYOUR_LOOKER_STUDIO_DASHBOARD_LINK\n",
+        "height": 112
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        128,
+        32
+      ],
+      "id": "d08fdd9c-6148-4ad5-8a78-1f1a5688e188",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "url",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        192,
+        560
+      ],
+      "id": "f4839ccd-d2e8-4e83-81ea-fb5a06faa1f6",
+      "name": "Get row(s) in sheet 1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "AI_PROJECT",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1924074797,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "product": "={{ $('Get row(s) in sheet 1').item.json.product }}",
+            "time": "={{ $json.time }}",
+            "price": "={{ $json.price }}"
+          },
+          "matchingColumns": [
+            "product"
+          ],
+          "schema": [
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product",
+              "displayName": "product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1360,
+        272
+      ],
+      "id": "dd554f87-3782-4850-ad8a-ef1c94dfdabd",
+      "name": "Append row in sheet 2"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "AI_PROJECT",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1924074797,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "product": "={{ $('Get row(s) in sheet 1').item.json.product }}",
+            "time": "={{ $json.time }}",
+            "price": "={{ $json.price }}"
+          },
+          "matchingColumns": [
+            "product"
+          ],
+          "schema": [
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product",
+              "displayName": "product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1328,
+        816
+      ],
+      "id": "847da24f-d679-4495-9ebe-bfba56a2f0c6",
+      "name": "Append or update row in sheet 2"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "AI_PROJECT",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1924074797,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1360,
+        0
+      ],
+      "id": "447f756e-f99a-432e-86da-7d1581635008",
+      "name": "Get row(s) in sheet 2"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "AI_PROJECT",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 876100971,
+          "mode": "list",
+          "cachedResultName": "Sheet3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_GID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.date }}",
+            "product": "={{ $json.product }}",
+            "min_price": "={{ $json.min_price }}"
+          },
+          "matchingColumns": [
+            "product"
+          ],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product",
+              "displayName": "product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "min_price",
+              "displayName": "min_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1792,
+        16
+      ],
+      "id": "ada537f4-5a6b-4f3b-a104-0c1a559bd487",
+      "name": "Append row in sheet"
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL_ADDRESS",
+        "subject": "=about price drop !!!.now {{ $('HTTP Request').item.json.title }}is only for {{ $('HTTP Request').item.json.price }}",
+        "emailType": "text",
+        "message": "=Product: {{ $('Get row(s) in sheet 1').item.json.product }}  :  {{ $('HTTP Request').item.json.title }}\n\nCurrent Price: {{ $('HTTP Request').item.json.price }}\n\nTarget Price:{{ $('Get row(s) in sheet 1').item.json['target price'] }}\n\nLink: {{ $('HTTP Request').item.json.url }}\n\nProduct Price Monitoring Dashboard\n\nDashboard Link:\nYOUR_LOOKER_STUDIO_DASHBOARD_LINK\n\nThis dashboard contains:\n- Product price trends\n- Daily minimum prices\n- Time-series analysis\n- Product comparison charts\n\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1840,
+        384
+      ],
+      "id": "502da60d-72e2-4785-ac7f-29152aceeb10",
+      "name": "Send a message"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet 2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append or update row in sheet 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet 1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet 2": {
+      "main": [
+        [
+          {
+            "node": "Code in Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}
